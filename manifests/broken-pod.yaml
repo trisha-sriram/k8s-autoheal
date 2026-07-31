@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: deliberate-failure
+  namespace: default
+spec:
+  containers:
+  - name: broken-app
+    image: alpine
+    # Forcing an immediate runtime crash to trigger a CrashLoopBackOff
+    command: ["sh", "-c", "echo 'Booting infrastructure layer...'; sleep 2; exit 1"]
