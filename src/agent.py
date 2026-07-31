@@ -1,8 +1,8 @@
 import os
-import anthropic
+from google import genai
 from kubernetes import client, config, watch
 
-llm_client = anthropic.Anthropic()
+llm_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 def main():
     # Automatically loads your local personal 'kind' config
@@ -11,6 +11,8 @@ def main():
     w = watch.Watch()
 
     print("Monitoring cluster for container failures...")
+
+    already_diagnosed = set()
 
     for event in w.stream(v1.list_pod_for_all_namespaces):
         pod = event['object']
@@ -32,11 +34,16 @@ def main():
             state = c_status.state
 
             if state.waiting and state.waiting.reason in ["CrashLoopBackOff", "ImagePullBackOff"]:
+                key = (namespace, pod_name, c_status.restart_count)
+                if key in already_diagnosed:
+                    continue
+                already_diagnosed.add(key)
+
                 reason = state.waiting.reason
-                print(f"\n🚨 ALERT: Pod [{pod_name}] in [{namespace}] failed: {reason}!")
+                print(f"\n ALERT: Pod [{pod_name}] in [{namespace}] failed: {reason}!")
 
                 try:
-                    print("trying logs")
+                    print("Writing logs...")
                     logs = v1.read_namespaced_pod_log(
                         name=pod_name, 
                         namespace=namespace, 
@@ -45,34 +52,34 @@ def main():
                 except Exception as e:
                     logs = f"Could not retrieve logs: {str(e)}"
 
+                context = str(status)
+
+                diagnose_with_llm(pod_name, reason, logs, context)
+
 
 
 
 def diagnose_with_llm(pod_name, reason, logs, context):
-    pass
-    # print(f"🧠 Passing {pod_name} failure telemetry to LLM...")
+    print(f"Passing {pod_name} failure telemetry to LLM...")
 
-    # prompt = f"""A Kubernetes pod has failed with reason: {reason}
+    prompt = f"""A Kubernetes pod has failed with reason: {reason}
 
-    # Pod name: {pod_name}
+    Pod name: {pod_name}
 
-    # Last 50 lines of logs:
-    # {logs}
+    Last 50 lines of logs:
+     {logs}
 
-    # Pod status:
-    # {context}
+     Pod status:
+     {context}
 
-    # Diagnose the root cause and suggest a concrete fix."""
+    Diagnose the root cause and suggest a concrete fix."""
 
-    # response = llm_client.messages.create(
-    #     model="claude-opus-4-8",
-    #     max_tokens=1024,
-    #     thinking={"type": "adaptive"},
-    #     messages=[{"role": "user", "content": prompt}],
-    # )
+    response = llm_client.models.generate_content(
+        model="gemini-flash-latest",
+        contents=prompt,
+    )
 
-    # diagnosis = next((b.text for b in response.content if b.type == "text"), "")
-    # print(f"🩺 Diagnosis:\n{diagnosis}")
+    print(f"🩺 Diagnosis:\n{response.text}")
 
 
 if __name__ == "__main__":
