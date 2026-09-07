@@ -22,6 +22,9 @@ def build_prompt(event_obj):
         container = pod.spec.containers[0]
         spec_info = f"image: {container.image}, command: {container.command}, args: {container.args}"
 
+        #resource requests/limits
+        resources_info = f"requests: {container.resources.requests}, limits: {container.resources.limits}"
+
         #exit code
         c_status = pod.status.container_statuses[0]
         if c_status.state.terminated:
@@ -30,12 +33,17 @@ def build_prompt(event_obj):
             exit_info = f"waiting reason: {c_status.state.waiting.reason}"
         else:
             exit_info = "container is currently running"
-    except Exception as e:
-        spec_info = f"Could not retrieve container spec: {e}"
-        exit_info = "Could not retrieve exit info"
+
+        #adding restart count to exit info
+        exit_info += f", restart count: {c_status.restart_count}"
+        
+    except Exception:
+        spec_info = "Could not retrieve container spec (pod may no longer exist)"
+        resources_info = "Could not retrieve resource info (pod may no longer exist)"
+        exit_info = "Could not retrieve exit info (pod may no longer exist)"
 
     #stating problem with above info to feed into the prompt
-    return f"A pod named {pod_name} had this problem: {event_obj.message}\n\nContainer spec:\n{spec_info}\n\nExit info:\n{exit_info}\n\nThe pod's logs state:\n{logs}"
+    return f"A pod named {pod_name} had this problem: {event_obj.message}\n\nContainer spec:\n{spec_info}\nResource requests/limits:\n{resources_info}\nExit info:\n{exit_info}\n\nThe pod's logs state:\n{logs}"
 
     
 
