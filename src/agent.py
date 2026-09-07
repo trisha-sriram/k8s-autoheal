@@ -46,6 +46,7 @@ def build_prompt(event_obj):
     return f"A pod named {pod_name} had this problem: {event_obj.message}\n\nContainer spec:\n{spec_info}\nResource requests/limits:\n{resources_info}\nExit info:\n{exit_info}\n\nThe pod's logs state:\n{logs}"
 
     
+#adding metric server cpu/memory metrics later on for prompt, testing basic prompt for now
 
 #watching for pod events
 w = watch.Watch()
@@ -60,3 +61,5 @@ for event in w.stream(v1.list_event_for_all_namespaces, _request_timeout=60):
         prompt = build_prompt(obj)
         print(prompt)
         print()
+
+
