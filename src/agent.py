@@ -15,11 +15,29 @@ def build_prompt(event_obj):
     except Exception as e:
         logs = f"Could not retrieve logs: {e}"
 
-    #stating problem with logs to feed into the prompt
-    return f"A pod named {pod_name} had this problem: {event_obj.message}\n\nThe pod's logs state:\n{logs}"
+    #getting container spec and exit/termination info
+    try:
+        #container spec
+        pod = v1.read_namespaced_pod(name=pod_name, namespace=namespace)
+        container = pod.spec.containers[0]
+        spec_info = f"image: {container.image}, command: {container.command}, args: {container.args}"
+
+        #exit code
+        c_status = pod.status.container_statuses[0]
+        if c_status.state.terminated:
+            exit_info = f"exit code: {c_status.state.terminated.exit_code}, reason: {c_status.state.terminated.reason}"
+        elif c_status.state.waiting:
+            exit_info = f"waiting reason: {c_status.state.waiting.reason}"
+        else:
+            exit_info = "container is currently running"
+    except Exception as e:
+        spec_info = f"Could not retrieve container spec: {e}"
+        exit_info = "Could not retrieve exit info"
+
+    #stating problem with above info to feed into the prompt
+    return f"A pod named {pod_name} had this problem: {event_obj.message}\n\nContainer spec:\n{spec_info}\n\nExit info:\n{exit_info}\n\nThe pod's logs state:\n{logs}"
 
     
-
 
 #watching for pod events
 w = watch.Watch()
@@ -28,7 +46,9 @@ for event in w.stream(v1.list_event_for_all_namespaces, _request_timeout=60):
     print("Event: %s %s/%s: %s" % (event['type'], obj.involved_object.kind, obj.involved_object.name, obj.message))
     print()
 
-    #calling my prompt function
-    prompt = build_prompt(obj)
-    print(prompt)
-    print()
+    #only build a prompt for actual pod failures, not every routine event
+    if obj.involved_object.kind == "Pod" and obj.reason in ("BackOff", "Failed"):
+        #calling my prompt function
+        prompt = build_prompt(obj)
+        print(prompt)
+        print()
