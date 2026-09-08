@@ -1,5 +1,5 @@
 from kubernetes import client, config, watch
-from diagnose import diagnose
+from actions import choose_action
 
 config.load_kube_config()
 
@@ -63,9 +63,11 @@ for event in w.stream(v1.list_event_for_all_namespaces, _request_timeout=60):
         print("Prompt: %s" % prompt)
         print()
 
-        #sending the prompt to the LLM and printing the diagnosis
-
-        print(diagnose(prompt))
+        #one call gets both the diagnosis and the chosen fix
+        action_name, action_args = choose_action(prompt)
+        print("Diagnosis: %s" % action_args.pop("diagnosis"))
+        print()
+        print(f"Chosen action: {action_name} {action_args}")
         print()
 
         #stopping after one diagnosis for now, don't want to re-diagnose on every restart
