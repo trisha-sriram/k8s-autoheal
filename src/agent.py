@@ -1,4 +1,5 @@
 from kubernetes import client, config, watch
+from diagnose import diagnose
 
 config.load_kube_config()
 
@@ -59,7 +60,12 @@ for event in w.stream(v1.list_event_for_all_namespaces, _request_timeout=60):
     if obj.involved_object.kind == "Pod" and obj.reason in ("BackOff", "Failed"):
         #calling my prompt function
         prompt = build_prompt(obj)
-        print(prompt)
+        print("Prompt: %s" % prompt)
+        print()
+
+        #sending the prompt to the LLM and printing the diagnosis
+
+        print(diagnose(prompt))
         print()
 
 
