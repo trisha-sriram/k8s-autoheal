@@ -1,5 +1,7 @@
 import json
-from diagnose import llm_client
+from openai import OpenAI
+
+llm_client = OpenAI()
 
 #every action requires a "diagnosis" field so we get the reasoning and the
 #chosen fix back from a single LLM call, instead of calling twice
