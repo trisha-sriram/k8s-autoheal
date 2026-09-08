@@ -6,8 +6,8 @@ llm_client = OpenAI()
 
 def diagnose(prompt):
     print("Calling diagnose function, passing the prompt to llm")
-    response = llm_client.chat.completions.create(
+    response = llm_client.responses.create(
         model="gpt-6-astra",
-        messages=[{"role": "user", "content": prompt}],
+        input=prompt,
     )
-    return response.choices[0].message.content
+    return response.output_text

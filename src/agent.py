@@ -68,4 +68,8 @@ for event in w.stream(v1.list_event_for_all_namespaces, _request_timeout=60):
         print(diagnose(prompt))
         print()
 
+        #stopping after one diagnosis for now, don't want to re-diagnose on every restart
+        w.stop()
+        break
+
 
